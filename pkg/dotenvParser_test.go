@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestParse(t *testing.T) {
+func TestParseFile(t *testing.T) {
 	tests := []struct {
 		name     string
 		filePath string
@@ -56,6 +56,54 @@ func TestParse(t *testing.T) {
 	for _, testcase := range tests {
 		t.Run(testcase.name, func(t *testing.T) {
 			got, err := Parse(testcase.filePath)
+
+			if err != testcase.err {
+				t.Errorf("expected error: %v, got: %v", testcase.err, err)
+			}
+
+			if !reflect.DeepEqual(got, testcase.expected) {
+				t.Fatalf("mismatch:\nexpected: %#v\ngot: %#v", testcase.expected, got)
+			}
+		})
+	}
+}
+
+func TestParseSyntaxErr(t *testing.T) {
+	tests := []struct {
+		name       string
+		fileString string
+		expected   map[string]string
+		err        error
+	}{
+		{
+			name:       "Missing Value",
+			fileString: "DB_HOST=",
+			expected:   nil,
+			err:        ErrMissingValue,
+		},
+		{
+			name:       "Missing Key",
+			fileString: "=12345",
+			expected:   nil,
+			err:        ErrMissingKey,
+		},
+		{
+			name:       "Space in Key",
+			fileString: "DB USER=admin",
+			expected:   nil,
+			err:        ErrKeyName,
+		},
+		{
+			name:       "No equal sign",
+			fileString: "DB_USER",
+			expected:   nil,
+			err:        ErrNoEqual,
+		},
+	}
+
+	for _, testcase := range tests {
+		t.Run(testcase.name, func(t *testing.T) {
+			got, err := parseString(testcase.fileString)
 
 			if err != testcase.err {
 				t.Errorf("expected error: %v, got: %v", testcase.err, err)

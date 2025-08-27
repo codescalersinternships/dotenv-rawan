@@ -2,7 +2,6 @@ package dotenvParser
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 )
@@ -11,7 +10,10 @@ var ErrUnsupporteFileType = errors.New("file type is not supported")
 var ErrFileNotExist = errors.New("file doesn't exist")
 var ErrEmptyFile = errors.New("file is empty")
 
-var ErrInvalidSyntax = errors.New("invalid dotenv syntax")
+var ErrNoEqual = errors.New("syntax error: line must have an equal sign")
+var ErrMissingKey = errors.New("syntax error: missing key")
+var ErrMissingValue = errors.New("syntax error: missing Value")
+var ErrKeyName = errors.New("syntax error: invalid key name")
 
 func loadEnv(path string) (string, error) {
 	if !strings.HasSuffix(path, ".env") {
@@ -31,12 +33,18 @@ func loadEnv(path string) (string, error) {
 }
 
 func Parse(path string) (map[string]string, error) {
-
 	data, err := loadEnv(path)
 
 	if err != nil {
 		return nil, err
 	}
+
+	got, err := parseString(data)
+
+	return got, err
+}
+
+func parseString(data string) (map[string]string, error) {
 
 	if len(data) == 0 {
 		return nil, ErrEmptyFile
@@ -46,7 +54,7 @@ func Parse(path string) (map[string]string, error) {
 
 	lines := strings.Split(data, "\n")
 
-	for i, line := range lines {
+	for _, line := range lines {
 		line = strings.TrimSpace(line)
 
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -56,7 +64,7 @@ func Parse(path string) (map[string]string, error) {
 		parts := strings.SplitN(line, "=", 2)
 
 		if len(parts) < 2 {
-			return nil, fmt.Errorf("%w on line %d", ErrInvalidSyntax, i+1)
+			return nil, ErrNoEqual
 		}
 
 		if cut, ok := strings.CutPrefix(parts[0], "export"); ok {
@@ -65,6 +73,18 @@ func Parse(path string) (map[string]string, error) {
 
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
+
+		if key == "" {
+			return nil, ErrMissingKey
+		}
+
+		if value == "" {
+			return nil, ErrMissingValue
+		}
+
+		if strings.Contains(key, " ") {
+			return nil, ErrKeyName
+		}
 
 		envVars[key] = value
 	}
